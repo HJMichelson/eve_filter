@@ -5,11 +5,18 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.ar.core.ArCoreApk;
+import com.google.ar.core.Camera;
+import com.google.ar.core.Frame;
 import com.google.ar.core.Session;
+import com.google.ar.core.exceptions.CameraNotAvailableException;
+import com.google.ar.core.exceptions.UnavailableApkTooOldException;
+import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
+import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
+import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
 public class main extends AppCompatActivity {
-    private Session mSession;
+    private Session session;
     private boolean mUserRequestedInstall;
 
     @Override
@@ -19,7 +26,17 @@ public class main extends AppCompatActivity {
         // ARCore requires camera permission to operate.
         if (!CameraPermissionHelper.hasCameraPermission(this)) {
             CameraPermissionHelper.requestCameraPermission(this);
-            return;
+            try {
+                Session session = new Session(this);
+                session.resume();
+                Frame frame = session.update();
+                Camera camera = frame.getCamera();
+            } catch (CameraNotAvailableException e) {
+                Toast.makeText(this, "Camera not available" + e, Toast.LENGTH_LONG)
+                        .show();
+            } catch (UnavailableApkTooOldException | UnavailableSdkTooOldException | UnavailableArcoreNotInstalledException | UnavailableDeviceNotCompatibleException e) {
+                e.printStackTrace();
+            }
         }
 
     }
@@ -38,11 +55,11 @@ public class main extends AppCompatActivity {
 
         // Make sure Google Play Services for AR is installed and up to date.
         try {
-            if (mSession == null) {
+            if (session == null) {
                 switch (ArCoreApk.getInstance().requestInstall(this, mUserRequestedInstall)) {
                     case INSTALLED:
                         // Success, create the AR session.
-                        mSession = new Session(this);
+                        session = new Session(this);
                         break;
                     case INSTALL_REQUESTED:
                         // Ensures next invocation of requestInstall() will either return
@@ -60,5 +77,10 @@ public class main extends AppCompatActivity {
             return;  // mSession is still null.
         }
     }
-    }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        session.pause();
+    }
+}
